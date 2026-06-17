@@ -1,0 +1,141 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    /// Sync with lib/consts/ultimate_admin.dart (kUltimateAdminEmail).
+    function ultimateAdminEmailStr() {
+      return 'husnainbhatti943@gmail.com';
+    }
+
+    /// Always treated as admin when signed in with this Auth email (cannot be revoked via Firestore rules).
+    function isUltimateAdminSignedIn() {
+      return isVerified() && request.auth.token.email == ultimateAdminEmailStr();
+    }
+
+    function profileEmailIsUltimate(data) {
+      return data.get('email', '') == ultimateAdminEmailStr();
+    }
+
+    /// Block changing your profile email TO the ultimate admin address (spoof protection).
+    function emailEscalationToUltimateBlocked() {
+      return !(request.resource.data.get('email', '') == ultimateAdminEmailStr()
+          && resource.data.get('email', '') != ultimateAdminEmailStr());
+    }
+
+    function isAdmin() {
+      return isVerified()
+          && (
+            isUltimateAdminSignedIn()
+            || (
+              exists(/databases/$(database)/documents/users/$(request.auth.uid))
+              && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
+            )
+          );
+    }
+
+    /// User doc: isAdmin may only change via admin-only update (see below).
+    function userIsAdminUnchanged() {
+      return request.resource.data.get('isAdmin', false)
+          == resource.data.get('isAdmin', false);
+    }
+
+    function onlyIsAdminFieldChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isAdmin'])
+          && request.resource.data.isAdmin is bool;
+    }
+
+    match /products/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /home_screen_tiles/{tileId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isVerified() && (
+        request.auth.uid == userId || isAdmin()
+      );
+
+      // Registration may create the profile before email verification.
+      // Reads/updates remain verified-only.
+      allow create: if isSignedIn()
+          && request.auth.uid == userId
+          && request.resource.data.get('isAdmin', false) == false;
+
+      // Own profile: update any field except toggling isAdmin or stealing ultimate-admin email.
+      allow update: if isVerified()
+          && request.auth.uid == userId
+          && userIsAdminUnchanged()
+          && emailEscalationToUltimateBlocked();
+
+      allow delete: if isVerified() && request.auth.uid == userId;
+
+      match /fcmTokens/{tokenDocId} {
+        allow read: if isVerified() && request.auth.uid == userId;
+        allow create, update: if isVerified() && request.auth.uid == userId;
+        allow delete: if isVerified() && request.auth.uid == userId;
+      }
+
+      // Admin app: grant or revoke admin — never on the ultimate admin profile (locked by email on doc).
+      allow update: if isAdmin()
+          && onlyIsAdminFieldChanged()
+          && !profileEmailIsUltimate(resource.data);
+    }
+
+    match /orders/{orderDocId} {
+      // Admin listing needs this branch to satisfy broad queries (.limit).
+      allow read: if isAdmin();
+
+      allow read: if isVerified()
+          && resource.data.userId == request.auth.uid;
+
+      allow create: if isVerified()
+          && request.resource.data.userId == request.auth.uid;
+
+      allow update: if isVerified() && (
+        resource.data.userId == request.auth.uid
+        || (
+          isAdmin()
+          && request.resource.data.userId == resource.data.userId
+        )
+      );
+
+      allow delete: if isVerified()
+          && resource.data.userId == request.auth.uid;
+    }
+
+    match /product_reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isVerified()
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.productId is string
+          && (request.resource.data.rating is int || request.resource.data.rating is float)
+          && request.resource.data.rating >= 1
+          && request.resource.data.rating <= 5;
+      allow update: if isVerified()
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && (request.resource.data.rating is int || request.resource.data.rating is float)
+          && request.resource.data.rating >= 1
+          && request.resource.data.rating <= 5;
+      allow delete: if isVerified()
+          && resource.data.userId == request.auth.uid;
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Grocery — customer (store)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "toolArgs": ["--flavor", "customer"]
+    },
+    {
+      "name": "Grocery — admin (standalone)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_admin.dart",
+      "toolArgs": ["--flavor", "admin"]
+    }
+  ]
+}

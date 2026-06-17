@@ -1,0 +1,10 @@
+{
+  "name": "firestore-backup",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local Firestore backup utility for the grocery app.",
+  "main": "backup.js",
+  "scripts": {
+    "backup": "node backup.js"
+  }
+}
