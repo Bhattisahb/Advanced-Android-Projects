@@ -1,0 +1,44 @@
+name: image_compressor
+description: Compress images to a target size while maintaining the best possible quality.
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  image: ^4.5.4
+
+  # Pick image
+  image_picker: ^1.1.2
+
+  # Compress image
+  flutter_image_compress: ^2.4.0
+
+  # Save image location
+  path_provider: ^2.1.4
+
+  # Share image
+  share_plus: ^10.1.0
+
+  # Save to gallery
+  image_gallery_saver_plus: ^4.0.1
+
+  # File permissions
+  permission_handler: ^11.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+
+
+flutter:
+  uses-material-design: true
